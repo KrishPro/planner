@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+
+    <style>
+        ::-webkit-scrollbar {
+            width: 4px
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555
+        }
+    </style>
+
+
+    <title>Planner</title>
+</head>
+
+<body>
+
+
+
+    <div class="fixed right-10 top-10 border p-3 rounded-md shadow-md">
+        <h1 class="text-2xl">Day <span id="streak-counter"></span></h1>
+        <h2 class="text-sm"><span id="streak-day-1"></span> as day 1</h2>
+    </div>
+
+
+    <div class="w-full h-screen flex flex-row">
+
+        <div class="w-96  flex justify-center items-center">
+            <div class="border rounded-3xl p-10 bg-gray-100 hover:bg-gray-300 transition hidden select-none"
+                id="prev-container" onclick="showPrev()">
+                <h1 class="text-5xl mb-1" id="prev-title"></h1>
+                <h1 class="text-xl" id="prev-date"></h1>
+            </div>
+        </div>
+
+        <div class="flex-grow flex justify-center items-center">
+            <div id="curr-container" class="hidden">
+                <h1 class="text-9xl mb-1" id="curr-title"></h1>
+                <h4 class="text-1xl" id="curr-date"></h4>
+            </div>
+        </div>
+
+        <div class="w-96  flex justify-center items-center">
+            <div class="border rounded-3xl p-10 bg-gray-100 hover:bg-gray-300 transition hidden select-none"
+                id="next-container" onclick="showNext()">
+                <h1 class="text-5xl mb-1" id="next-title"></h1>
+                <h1 class="text-xl" id="next-date"></h1>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="fixed bottom-7 right-10 ">
+        <button class="border rounded p-4 hover:bg-gray-100" onclick="showModal()">Configure</button>
+        <button class="border rounded p-4 hover:bg-gray-100" onclick="showToday()">Show Today</button>
+    </div>
+
+    <div class="fixed top-0 left-0 w-screen h-screen bg-white p-5 flex-col hidden" id="configure-modal">
+
+        <div class="flex flex-row justify-between">
+            <span class="text-3xl font-thin">Configure your planner</span>
+            <div class="flex flex-row gap-2">
+                <button class="border rounded px-4 py-2 hover:bg-gray-200 active:bg-gray-100 bg-gray-50"
+                    onclick="discardConfigure()">Discard</button>
+                <button class="border rounded px-4 py-2 hover:bg-gray-200 active:bg-gray-100 bg-gray-50"
+                    onclick="saveConfigure()">Save</button>
+            </div>
+        </div>
+
+        <hr class="my-7 bg-black border-black">
+
+
+
+        <div class="flex flex-row flex-grow">
+
+            <div class="w-96 p-3 flex flex-col">
+
+                <div class="flex">
+                    <span class="w-36 flex items-center">Select Start Date</span>
+                    <input type="date" name="" onchange="handleDateChange(event)"
+                        class="flex-grow border py-2 px-4 rounded-md" id="start-date-selector">
+                </div>
+
+                <hr class="my-2 border-gray-300">
+
+
+                <div class="flex">
+                    <span class="min-w-44 flex items-center">Add your Subjects</span>
+                    <input type="text" placeholder="Add +" class="border p-3 flex-grow min-w-0 rounded-md"
+                        onkeypress="handleAddSubject(event)">
+                </div>
+
+                <hr class="my-2 border-gray-300">
+
+                <div class="flex gap-1 flex-col overflow-hidden flex-grow h-96 overflow-y-scroll"
+                    id="tmp-subjects-container"></div>
+
+            </div>
+
+
+            <div class="flex flex-col flex-grow p-3">
+
+                <div>
+                    <h1 class="text-xl mb-3">Your Next 30 days</h1>
+                </div>
+                <div class="p-3 flex-grow  overflow-y-scroll h-96 border flex flex-col gap-3" id="schedule-container">
+                    <div class="grid grid-cols-4 gap-3">
+                        <!-- below items will be deleted once the data is loaded -->
+                        <div class="col-span-1 border p-3">Date</div>
+                        <div class="col-span-3 border p-3">Subject</div>
+                    </div>
+
+
+                </div>
+            </div>
+
+
+
+        </div>
+    </div>
+
+
+
+    <script>
+        const timeInDay = 1000 * 3600 * 24;
+
+        if (window.localStorage.getItem("startDate")==null || window.localStorage.getItem("subjectSequence")==null) {
+            window.localStorage.setItem("startDate", (new Date()).getTime());
+            window.localStorage.setItem("subjectSequence", JSON.stringify(["maths", "physics", "chemistry"]));
+        }
+
+        let startDate = new Date(parseInt(window.localStorage.getItem("startDate")));
+        let subjectSequence = JSON.parse(window.localStorage.getItem("subjectSequence"));
+
+        let tmpSubjectSequence, tmpStartDate;
+        resetTmpConfiguration();
+
+        function resetTmpConfiguration() {
+            tmpSubjectSequence = subjectSequence.slice();
+            tmpStartDate = new Date((new Date()).getTime() + (timeInDay/4));
+        }
+
+
+        function showModal() {
+            document.getElementById("start-date-selector").valueAsDate = tmpStartDate;
+            document.getElementById("configure-modal").style.display = "flex";
+            renderSubjects(); renderSchedule();
+
+        }
+
+
+        function handleRemoveSubject(event, index) {
+            if (event.target.classList.contains('bi-x-lg')) {
+                tmpSubjectSequence = tmpSubjectSequence.filter((_, i) => i != index);
+                renderSubjects(); renderSchedule();
+            }
+        }
+
+        function handleAddSubject(event) {
+            if (event.key == 'Enter' && event.target.value != '') {
+                tmpSubjectSequence.push(event.target.value);
+                event.target.value = '';
+                renderSubjects(); renderSchedule();
+            }
+        }
+
+        function handleDateChange(event) {
+            tmpStartDate = event.target.valueAsDate;
+            renderSchedule();
+        }
+
+        function saveConfigure() {
+            if (tmpSubjectSequence.length < 1 || isNaN(tmpStartDate)) {return}
+            window.localStorage.setItem("startDate", tmpStartDate.getTime());
+            window.localStorage.setItem("subjectSequence", JSON.stringify(tmpSubjectSequence));
+            document.getElementById("configure-modal").style.display = "none";
+            fillData(tmpStartDate, getRequestedDate(), tmpSubjectSequence);
+        }
+
+        function discardConfigure() {
+            resetTmpConfiguration();
+            document.getElementById("configure-modal").style.display = "none";
+        }
+
+        function renderSchedule() {
+            console.log("re-rendering")
+            let container = document.getElementById("schedule-container");
+            container.innerHTML = "";
+
+            if (tmpSubjectSequence.length < 1 || isNaN(tmpStartDate)) { return };
+
+            Array.from(new Array(30).keys()).forEach(daysPassedBy => {
+
+                let day = document.createElement("div")
+                day.classList = "grid grid-cols-4 gap-3";
+                day.innerHTML = `
+                <div class="col-span-1 border p-3">${new Date(tmpStartDate.getTime() + (daysPassedBy * timeInDay)).toDateString()}</div>
+                <div class="col-span-3 border p-3">${tmpSubjectSequence[daysPassedBy % tmpSubjectSequence.length]}</div>
+                `
+                container.appendChild(day);
+            })
+        }
+
+
+        function renderSubjects() {
+            let tmpContainer = document.getElementById("tmp-subjects-container");
+            tmpContainer.innerHTML = "";
+
+            tmpSubjectSequence.forEach((subject, index) => {
+                let subElement = document.createElement("div");
+                subElement.classList = "bg-gray-100 border rounded-md";
+
+                // let gripIcon = document.createElement("i");
+                // gripIcon.classList = "bi bi-grip-horizontal float-start p-3";
+                // subElement.appendChild(gripIcon);
+
+                let subText = document.createElement("div");
+                subText.classList = "p-3  float-start inline";
+                subText.innerText = subject;
+                subElement.appendChild(subText);
+
+                let closeIcon = document.createElement("i");
+                closeIcon.classList = "bi bi-x-lg float-end p-3";
+                subElement.appendChild(closeIcon);
+
+                subElement.addEventListener("click", (event) => handleRemoveSubject(event, index))
+                tmpContainer.appendChild(subElement)
+            });
+        }
+
+        function getRequestedDate() {
+            let d = (new URLSearchParams(window.location.search)).get("d");
+            let dateObject = new Date(d);
+            if (d == null || isNaN(dateObject)) {
+                let currentDate = new Date();
+                let currentD = `${currentDate.getMonth() + 1}-${currentDate.getDate()}-${currentDate.getFullYear()}`;
+                window.location.assign(window.location.href + "?d=" + currentD)
+            }
+
+            return dateObject;
+        }
+
+        function showToday() {
+            window.location.assign(window.location.href.split('?')[0]);
+        }
+
+        function showNext() {
+            let nextDate = new Date(getRequestedDate().getTime() + timeInDay);
+            let nextD = `${nextDate.getMonth() + 1}-${nextDate.getDate()}-${nextDate.getFullYear()}`;
+            window.location.assign(window.location.href.split('?')[0] + "?d=" + nextD)
+        }
+
+        function showPrev() {
+            let prevDate = new Date(getRequestedDate().getTime() - timeInDay);
+            let prevD = `${prevDate.getMonth() + 1}-${prevDate.getDate()}-${prevDate.getFullYear()}`;
+            window.location.assign(window.location.href.split('?')[0] + "?d=" + prevD)
+        }
+
+        function fillData(startDate, currentDate, subjectSequence) {
+
+            { // setting streak date
+                let dayZero = new Date('3-27-24');
+                if (currentDate.getTime() != 0) {
+                    document.getElementById("streak-counter").innerText = Math.round((currentDate - dayZero) / timeInDay)
+                }
+                document.getElementById("streak-day-1").innerText = (new Date(dayZero.getTime() + timeInDay)).toDateString();
+            }
+
+            let daysPassedBy = Math.round((currentDate - startDate) / timeInDay);
+
+            if (daysPassedBy >= 1) {
+
+                document.getElementById("prev-container").style.display = "block";
+                document.getElementById("prev-title").innerText = subjectSequence[(daysPassedBy - 1) % subjectSequence.length];
+                document.getElementById("prev-date").innerText = new Date(currentDate.getTime() - timeInDay).toDateString();
+            }
+
+            if (daysPassedBy >= 0) {
+                document.getElementById("curr-container").style.display = "block";
+                document.getElementById("curr-title").innerText = subjectSequence[(daysPassedBy) % subjectSequence.length];
+                document.getElementById("curr-date").innerText = new Date(currentDate).toDateString();
+            }
+
+            if (daysPassedBy >= -1) {
+                document.getElementById("next-container").style.display = "block";
+                document.getElementById("next-title").innerText = subjectSequence[(daysPassedBy + 1) % subjectSequence.length];
+                document.getElementById("next-date").innerText = new Date(currentDate.getTime() + timeInDay).toDateString();
+            }
+        }
+
+        fillData(startDate, getRequestedDate(), subjectSequence);
+    </script>
+
+
+
+</body>
+
+</html>
